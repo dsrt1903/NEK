@@ -1,0 +1,84 @@
+name: Проверка NEK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['docs/demo.mp4', 'docs/screenshots/*.png']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm test
+      - run: docker compose config -q
+      - run: docker compose up --build --wait
+      - name: Проверить бронирование через HTTP в контейнере
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const root = 'http://127.0.0.1:8080/api/';
+          async function api(path, status, { method = 'GET', token, body } = {}) {
+            const headers = {};
+            if (token) headers.Authorization = 'Bearer ' + token;
+            if (body) headers['Content-Type'] = 'application/json';
+            const response = await fetch(root + path, { method, headers, body: JSON.stringify(body) });
+            const result = await response.json();
+            assert.equal(response.status, status, JSON.stringify(result));
+            return result;
+          }
+          const login = name => api('session', 201, {
+            method: 'POST', body: { login: name, password: name + '-demo' }
+          }).then(result => result.token);
+          await api('health', 200);
+          const [client, guest, admin] = await Promise.all(['client', 'guest', 'admin'].map(login));
+          const { days } = await api('catalog', 200, { token: client });
+          const booking = { day: days[1], masterId: 'alina', serviceId: 'consultation' };
+          const slots = await api('slots?' + new URLSearchParams(booking), 200, { token: client });
+          const body = { ...booking, startsAt: slots[0].startsAt };
+          const visit = await api('bookings', 201, { method: 'POST', token: client, body });
+          await api('bookings', 409, { method: 'POST', token: guest, body });
+          const schedule = await api('schedule?day=' + booking.day, 200, { token: admin });
+          assert.ok(schedule.some(row => row.id === visit.id));
+          console.log('Compose: вход обеих ролей, создание записи, конфликт и календарь подтверждены.');
+          NODE
+      - if: always()
+        run: docker compose logs api
+      - if: always()
+        run: docker compose down -v
+
+  iphone:
+    runs-on: macos-15
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bash tests/record-demo.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nek-iphone-demo
+          path: |
+            docs/demo.mp4
+            docs/screenshots/*.png
+      - name: Сохранить материалы демонстрации
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/demo.mp4 docs/screenshots/*.png
+          if ! git diff --cached --quiet; then
+            git commit -m 'Add recorded iPhone demo and screenshots'
+            git push origin HEAD:main
+          fi
