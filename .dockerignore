@@ -1,0 +1,6 @@
+*
+!package.json
+!src/
+src/*
+!src/server/
+!src/server/*.js

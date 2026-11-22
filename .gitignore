@@ -1,0 +1,8 @@
+.DS_Store
+.build/
+data/
+*.sqlite*
+.env
+node_modules/
+xcuserdata/
+*.xcuserstate

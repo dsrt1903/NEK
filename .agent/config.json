@@ -1,0 +1,7 @@
+{
+  "agent": "OpenAI Codex",
+  "modelFamily": "GPT-6",
+  "mode": "Work",
+  "tools": ["Git", "Xcode CLI", "Node.js test runner", "Docker Compose CLI"],
+  "validationTarget": "Локальная учебная база, без внешних сервисов"
+}
