@@ -30,7 +30,7 @@ done
 curl -fsS http://127.0.0.1:8080/api/health > /dev/null
 
 xcrun simctl bootstatus "$device" -b
-xcrun simctl status_bar "$device" override --time '09:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState unplugged --batteryLevel 100
+xcrun simctl status_bar "$device" override --time '09:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --batteryLevel 100 || true
 xcodebuild -project NEK.xcodeproj -scheme NEK -destination "id=$device" \
   -derivedDataPath .build -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO build-for-testing
 
@@ -42,7 +42,7 @@ xcodebuild -project NEK.xcodeproj -scheme NEK -destination "id=$device" \
 kill -INT "$video_pid" 2>/dev/null || true
 wait "$video_pid" || true
 video_pid=""
-xcrun simctl status_bar "$device" clear
+xcrun simctl status_bar "$device" clear || true
 
 xcrun xcresulttool export attachments --path "$output/demo.xcresult" --output-path "$output/attachments"
 python3 - "$output/attachments" <<'PY'
